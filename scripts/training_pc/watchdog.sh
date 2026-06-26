@@ -25,6 +25,28 @@ echo "   Python:  $PYTHON"
 echo "   Time:    $(date)"
 echo ""
 
+# Auto-recover: if trigger is stuck on "running" (previous crash), reset to "queued"
+if [ -f "experiments/TRIGGER.yaml" ]; then
+    STALE_STATUS=$($PYTHON -c "
+import yaml
+with open('experiments/TRIGGER.yaml') as f:
+    t = yaml.safe_load(f)
+print(t.get('status', 'unknown'))
+")
+    if [ "$STALE_STATUS" == "running" ]; then
+        echo "   Found stale 'running' trigger — resetting to 'queued'"
+        $PYTHON -c "
+import yaml
+with open('experiments/TRIGGER.yaml') as f:
+    t = yaml.safe_load(f)
+t['status'] = 'queued'
+t['retry'] = True
+with open('experiments/TRIGGER.yaml', 'w') as f:
+    yaml.dump(t, f)
+"
+    fi
+fi
+
 while true; do
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Checking for new experiments..."
     
