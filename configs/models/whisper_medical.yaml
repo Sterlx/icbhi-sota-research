@@ -1,0 +1,39 @@
+# ============================================================
+# Whisper Medical Adapter — Configuration
+# Frozen Whisper encoder + trainable medical adapter (efficient)
+# ============================================================
+
+model:
+  name: "WhisperMedical"
+  whisper_size: "small"  # tiny (39M), small (244M), medium (769M)
+  freeze_backbone: true  # Only train adapter + classifier
+  
+  adapter:
+    adapter_dim: 128
+  
+  classifier:
+    hidden_dims: [512, 256]
+    dropout: 0.3
+    num_classes: 4
+
+data:
+  data_dir: "./ICBHI_2017"
+  sample_rate: 16000
+  cycle_duration: 4.0
+  num_workers: 4
+  batch_size: 32
+
+augmentation:
+  use_specaugment: true
+  time_mask_param: 20
+  freq_mask_param: 12
+  use_mixup: false  # Not compatible with waveform input
+
+training:
+  epochs: 100
+  learning_rate: 0.001  # Higher LR for adapter-only training
+  weight_decay: 0.0001
+  warmup_epochs: 3
+  gradient_accumulation_steps: 1
+  early_stopping_patience: 10
+  seed: 42

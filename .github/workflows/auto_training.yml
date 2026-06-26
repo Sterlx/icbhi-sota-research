@@ -1,0 +1,141 @@
+# ============================================================
+# GitHub Actions: Auto-training CI/CD Pipeline
+# Triggers training on push of experiment configs
+# ============================================================
+
+name: ICBHI Auto-Training Pipeline
+
+on:
+  push:
+    paths:
+      - 'experiments/TRIGGER.yaml'
+      - 'configs/models/**'
+      - 'src/**'
+  workflow_dispatch:
+    inputs:
+      experiment_id:
+        description: 'Experiment ID to run'
+        required: true
+
+jobs:
+  detect-trigger:
+    runs-on: ubuntu-latest
+    outputs:
+      should_train: ${{ steps.check.outputs.should_train }}
+      exp_id: ${{ steps.check.outputs.exp_id }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check for training trigger
+        id: check
+        run: |
+          if [ -f "experiments/TRIGGER.yaml" ]; then
+            STATUS=$(python3 -c "
+import yaml
+with open('experiments/TRIGGER.yaml') as f:
+    t = yaml.safe_load(f)
+print(t.get('status', 'unknown'))
+")
+            if [ "$STATUS" == "queued" ]; then
+              EXP_ID=$(python3 -c "
+import yaml
+with open('experiments/TRIGGER.yaml') as f:
+    t = yaml.safe_load(f)
+print(t.get('experiment_id', 'unknown'))
+")
+              echo "should_train=true" >> $GITHUB_OUTPUT
+              echo "exp_id=$EXP_ID" >> $GITHUB_OUTPUT
+              echo "✅ Training triggered: $EXP_ID"
+            else
+              echo "should_train=false" >> $GITHUB_OUTPUT
+              echo "Status: $STATUS (not queued)"
+            fi
+          else
+            echo "should_train=false" >> $GITHUB_OUTPUT
+            echo "No trigger file found"
+          fi
+
+  train:
+    needs: detect-trigger
+    if: needs.detect-trigger.outputs.should_train == 'true'
+    runs-on: [self-hosted, GPU]  # Use self-hosted GPU runner
+    timeout-minutes: 1440  # 24 hours max
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu118
+          pip install transformers accelerate
+          pip install librosa soundfile scikit-learn pandas pyyaml tqdm
+      
+      - name: Update trigger status to running
+        run: |
+          python3 -c "
+import yaml
+from datetime import datetime
+with open('experiments/TRIGGER.yaml') as f:
+    t = yaml.safe_load(f)
+t['status'] = 'running'
+t['started_at'] = datetime.now().isoformat()
+with open('experiments/TRIGGER.yaml', 'w') as f:
+    yaml.dump(t, f)
+"
+      
+      - name: Run training
+        id: training
+        run: |
+          EXP_ID="${{ needs.detect-trigger.outputs.exp_id }}"
+          CONFIG_FILE="experiments/${EXP_ID}/config.yaml"
+          
+          if [ ! -f "$CONFIG_FILE" ]; then
+            # Fallback to default config
+            CONFIG_FILE="configs/models/ast_respadapter.yaml"
+          fi
+          
+          echo "Training with config: $CONFIG_FILE"
+          python src/training/train.py --config "$CONFIG_FILE" --exp-id "$EXP_ID"
+      
+      - name: Run evaluation
+        if: success()
+        run: |
+          EXP_ID="${{ needs.detect-trigger.outputs.exp_id }}"
+          python src/evaluation/evaluate.py --exp-id "$EXP_ID"
+      
+      - name: Mark as completed
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" == "success" ]; then
+            TRIGGER_STATUS="completed"
+          else
+            TRIGGER_STATUS="failed"
+          fi
+          
+          python3 -c "
+import yaml
+from datetime import datetime
+with open('experiments/TRIGGER.yaml') as f:
+    t = yaml.safe_load(f)
+t['status'] = '${TRIGGER_STATUS}'
+t['completed_at'] = datetime.now().isoformat()
+with open('experiments/TRIGGER.yaml', 'w') as f:
+    yaml.dump(t, f)
+"
+      
+      - name: Commit and push results
+        if: always()
+        run: |
+          EXP_ID="${{ needs.detect-trigger.outputs.exp_id }}"
+          git config user.name "ICBHI Research Bot"
+          git config user.email "bot@icbhi-research.local"
+          
+          git add "experiments/${EXP_ID}/" experiments/TRIGGER.yaml results/
+          git diff --staged --quiet || git commit -m "[RESULTS] ${EXP_ID} — ${{ job.status }}"
+          git push origin main

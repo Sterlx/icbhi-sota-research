@@ -1,0 +1,60 @@
+# ============================================================
+# ICBHI 2017 Data Configuration
+# Standard preprocessing & augmentation settings
+# ============================================================
+
+data:
+  sample_rate: 16000
+  cycle_duration: 4.0  # seconds per cycle
+  batch_size: 32
+  num_workers: 4
+  
+  # Mel spectrogram parameters
+  mel_bins: 128
+  n_fft: 1024
+  hop_length: 160  # 10ms at 16kHz
+  win_length: 400  # 25ms at 16kHz
+  fmin: 50
+  fmax: 2000
+  
+  # Lung sound bandpass filter
+  filter:
+    lowcut: 100.0
+    highcut: 2000.0
+    order: 4
+  
+  # Augmentations
+  augmentations:
+    specaugment:
+      time_mask_param: 20
+      freq_mask_param: 12
+      num_time_masks: 2
+      num_freq_masks: 2
+      prob: 0.5
+    
+    mixup:
+      alpha: 0.4
+      prob: 0.5
+    
+    noise:
+      std_min: 0.001
+      std_max: 0.015
+      prob: 0.3
+    
+    time_stretch:
+      rate_min: 0.9
+      rate_max: 1.1
+      prob: 0.3
+    
+    pitch_shift:
+      steps_min: -2
+      steps_max: 2
+      prob: 0.3
+  
+  # Official 60/40 patient-level split
+  split:
+    train_ratio: 0.6
+    test_ratio: 0.4
+    seed: 42
+    patient_level: true
+    shuffle_patients: true

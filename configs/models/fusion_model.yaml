@@ -1,0 +1,45 @@
+# ============================================================
+# Multi-Model Cross-Attention Fusion — Configuration
+# Combines AST + wav2vec2 + EfficientNet with cross-attention
+# ============================================================
+
+model:
+  name: "MultiModelFusion"
+  freeze_backbone: false
+  
+  use_ast: true
+  use_wav2vec2: true
+  use_efficientnet: true
+  
+  fusion:
+    fusion_dim: 512
+    num_heads: 8
+    dropout: 0.2
+  
+  classifier:
+    hidden_dims: [512, 256, 128]
+    dropout: 0.3
+    num_classes: 4
+
+data:
+  data_dir: "./ICBHI_2017"
+  sample_rate: 16000
+  cycle_duration: 4.0
+  num_workers: 4
+  batch_size: 16  # Smaller batch for multi-model
+
+augmentation:
+  use_specaugment: true
+  time_mask_param: 20
+  freq_mask_param: 12
+  use_mixup: true
+  mixup_alpha: 0.4
+
+training:
+  epochs: 100
+  learning_rate: 0.00005
+  weight_decay: 0.0001
+  warmup_epochs: 5
+  gradient_accumulation_steps: 2  # Simulate batch 32
+  early_stopping_patience: 15
+  seed: 42

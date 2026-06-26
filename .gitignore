@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Environments
+.env
+.venv/
+venv/
+
+# Experiments (large files)
+experiments/*/checkpoints/
+*.pth
+*.pt
+
+# IDE
+.vscode/
+.idea/
+
+# Data (don't commit dataset)
+ICBHI_2017/
+data/raw/
+
+# Outputs
+*.log
+wandb/

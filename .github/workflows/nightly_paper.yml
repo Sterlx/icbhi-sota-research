@@ -1,0 +1,57 @@
+# ============================================================
+# GitHub Actions: Nightly Paper Generation
+# Auto-generates updated paper with latest results
+# ============================================================
+
+name: Nightly Paper Generation
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # 4 AM UTC daily
+  workflow_dispatch:
+
+jobs:
+  generate-paper:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          pip install pyyaml numpy matplotlib seaborn scikit-learn
+      
+      - name: Generate figures
+        run: |
+          python3 paper/generate_figures.py
+      
+      - name: Generate LaTeX paper
+        run: |
+          python3 paper/generate_paper.py
+      
+      - name: Compile LaTeX (if available)
+        continue-on-error: true
+        run: |
+          sudo apt-get update && sudo apt-get install -y texlive-latex-base texlive-latex-extra
+          cd paper
+          pdflatex main.tex
+          pdflatex main.tex  # Second pass for references
+      
+      - name: Upload paper PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-pdf
+          path: paper/main.pdf
+      
+      - name: Commit paper updates
+        run: |
+          git config user.name "ICBHI Research Bot"
+          git config user.email "bot@icbhi-research.local"
+          git add paper/
+          git diff --staged --quiet || git commit -m "[AUTO] Nightly paper update"
+          git push origin main
