@@ -1,5 +1,6 @@
 experiment_id: exp_20260626_123347
 git_hash: 30605bfe1e2480850f2c20a4baa96e17c0ad7848
-status: queued
-timestamp: '2026-06-26T12:33:49.650342'
 retry: true
+started_at: '2026-06-26T07:55:17.929551'
+status: running
+timestamp: '2026-06-26T12:33:49.650342'
