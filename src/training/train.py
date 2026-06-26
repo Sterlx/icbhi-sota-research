@@ -196,7 +196,7 @@ def train(config: dict, exp_dir: Path):
     criterion = nn.CrossEntropyLoss()
     
     # Mixed precision
-    scaler = GradScaler()
+    scaler = GradScaler(device.type)
     
     # Augmentation
     aug_config = config.get("augmentation", {})

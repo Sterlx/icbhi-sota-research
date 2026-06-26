@@ -167,6 +167,11 @@ class ICBHIDataset(Dataset):
         if audio.ndim > 1:
             audio = audio.mean(axis=1)
         
+        # Guard against empty audio (zero-duration cycles)
+        if len(audio) == 0:
+            audio = np.zeros(self.cycle_length, dtype=np.float32)
+            return audio
+        
         # Handle different sample rates
         if orig_sr != self.sample_rate:
             audio = librosa.resample(audio, orig_sr=orig_sr, target_sr=self.sample_rate)
