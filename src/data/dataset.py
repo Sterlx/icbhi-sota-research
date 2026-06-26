@@ -190,6 +190,8 @@ class ICBHIDataset(Dataset):
                           lowcut: float = 100.0, 
                           highcut: float = 2000.0) -> np.ndarray:
         """Apply bandpass filter for lung sound frequencies."""
+        if len(audio) < 30:  # Too short for filter — skip
+            return audio
         try:
             from scipy.signal import butter, sosfiltfilt
             nyquist = self.sample_rate / 2
