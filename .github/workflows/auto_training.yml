@@ -71,7 +71,7 @@ print(t.get('experiment_id', 'unknown'))
       
       - name: Install dependencies
         run: |
-          pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu118
+          pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu126
           pip install transformers accelerate
           pip install librosa soundfile scikit-learn pandas pyyaml tqdm
       

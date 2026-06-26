@@ -70,7 +70,7 @@ pip install scikit-learn pandas numpy matplotlib seaborn
 pip install wandb tensorboard pyyaml tqdm
 
 # Training Computer (GPU)
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu126
 pip install transformers accelerate deepspeed
 pip install wandb tensorboard
 ```

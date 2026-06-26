@@ -1,31 +1,42 @@
 #!/bin/bash
 # ============================================================
-# Training PC Setup Script
-# Run once on the training computer to set up the environment
+# Training PC Setup Script (REFERENCE ONLY)
+# Your actual environment is already configured:
+#   Python 3.12.7 | PyTorch 2.12.0+cu126 | torchaudio 2.11.0 | torchvision 0.27.0+cu126
 # ============================================================
 
 set -e
 
-echo "🖥️  Setting up ICBHI Training Environment"
-echo "========================================="
+echo "🖥️  ICBHI Training Environment Setup (Reference)"
+echo "================================================="
+echo ""
+echo "⚠️  Your training environment is already set up with:"
+echo "    Python 3.12.7"
+echo "    PyTorch 2.12.0+cu126"
+echo "    torchaudio 2.11.0"
+echo "    torchvision 0.27.0+cu126"
+echo ""
+echo "This script documents the setup. Skip the install steps"
+echo "if your environment is already working."
+echo ""
 
-# Install system dependencies
-echo "📦 Installing system dependencies..."
-sudo apt-get update
-sudo apt-get install -y python3.10 python3.10-venv python3-pip git
+# Install system dependencies (skip if already done)
+echo "📦 System dependencies (skip if installed)..."
+# sudo apt-get update
+# sudo apt-get install -y python3.12 python3.12-venv python3-pip git
 
-# Create virtual environment
-echo "🐍 Creating Python virtual environment..."
-python3.10 -m venv venv
-source venv/bin/activate
+# Virtual environment (skip - already exists)
+# echo "🐍 Creating Python virtual environment..."
+# python3.12 -m venv venv
+# source venv/bin/activate
 
-# Install PyTorch with CUDA
-echo "🔥 Installing PyTorch with CUDA..."
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu118
+# PyTorch with CUDA 12.6 (skip - already installed)
+# echo "🔥 PyTorch 2.12.0+cu126 (already installed)..."
+# pip install torch==2.12.0 torchvision==0.27.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cu126
 
-# Install other dependencies
-echo "📚 Installing ML packages..."
-pip install transformers accelerate deepspeed
+# Install additional ML packages
+echo "📚 Installing additional ML packages..."
+pip install transformers accelerate
 pip install wandb tensorboard
 pip install librosa soundfile audiomentations
 pip install scikit-learn pandas numpy matplotlib seaborn
