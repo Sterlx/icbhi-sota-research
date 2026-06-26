@@ -24,6 +24,7 @@ model:
 
 data:
   data_dir: "./ICBHI_2017"
+  split_file: "./src/data/official_split.txt"
   sample_rate: 16000
   cycle_duration: 4.0
   num_workers: 4

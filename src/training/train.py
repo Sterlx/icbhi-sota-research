@@ -145,6 +145,7 @@ def train(config: dict, exp_dir: Path):
     data_config = config.get("data", {})
     train_loader, test_loader, class_weights = create_dataloaders(
         data_dir=data_config.get("data_dir", "./ICBHI_2017"),
+        split_file=data_config.get("split_file", "./src/data/official_split.txt"),
         batch_size=config.get("batch_size", 32),
         sample_rate=data_config.get("sample_rate", 16000),
         cycle_duration=data_config.get("cycle_duration", 4.0),

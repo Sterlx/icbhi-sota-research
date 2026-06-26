@@ -1,21 +1,23 @@
 """
 ICBHI 2017 Dataset Loader
-Official 60/40 patient-level split, per respiratory cycle detection
+Uses OFFICIAL recording-level 60/40 split, per respiratory cycle detection
 """
-import os
 import numpy as np
 import pandas as pd
 from pathlib import Path
 import torch
-import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import librosa
 import soundfile as sf
-from typing import Tuple, Dict, Optional, List
+from typing import Tuple, Optional
 
 
 class ICBHIDataset(Dataset):
     """ICBHI 2017 respiratory sound dataset with cycle-level annotations.
+    
+    Uses the OFFICIAL recording-level train/test split.
+    IMPORTANT: The same patient may appear in both train and test
+    (different recordings) — this is the official ICBHI protocol.
     
     Classes:
         0: Normal (no crackles, no wheezes)
@@ -28,10 +30,9 @@ class ICBHIDataset(Dataset):
         self,
         data_dir: str,
         split: str = "train",  # "train" or "test"
+        split_file: str = None,  # Path to official_split.txt
         sample_rate: int = 16000,
         cycle_duration: float = 4.0,
-        split_ratio: float = 0.6,
-        seed: int = 42,
         augment: bool = False,
         return_waveform: bool = False,
     ):
@@ -43,21 +44,53 @@ class ICBHIDataset(Dataset):
         self.return_waveform = return_waveform
         self.augment = augment
         
+        # Load official split
+        self.split_recordings = self._load_official_split(split_file)
+        
         # Parse all annotations
         self.annotations = self._parse_annotations()
         
-        # Patient-level split
-        self.patients = sorted(self.annotations["patient_id"].unique())
-        self._set_split(split_ratio, seed)
-        
-        # Filter to current split
+        # Filter to current split by recording name
         self.cycles = self.annotations[
-            self.annotations["patient_id"].isin(self.split_patients)
+            self.annotations["recording_id"].isin(self.split_recordings)
         ].reset_index(drop=True)
         
+        unique_patients = set(r.split("_")[0] for r in self.split_recordings)
         print(f"[{split.upper()}] {len(self.cycles)} cycles from "
-              f"{len(self.split_patients)} patients")
+              f"{len(self.split_recordings)} recordings ({len(unique_patients)} patients)")
         self._print_class_distribution()
+    
+    def _load_official_split(self, split_file: str = None) -> set:
+        """Load the official ICBHI recording-level train/test split.
+        
+        Format: recording_name\ttrain|test
+        Example: 101_1b1_Al_sc_Meditron\ttest
+        
+        If no split_file provided, looks for 'official_split.txt' in data_dir.
+        """
+        if split_file is None:
+            split_file = self.data_dir / "official_split.txt"
+        split_file = Path(split_file)
+        
+        if not split_file.exists():
+            raise FileNotFoundError(
+                f"Official split file not found: {split_file}\n"
+                "Place 'official_split.txt' in the dataset directory."
+            )
+        
+        recordings = set()
+        with open(split_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split()
+                if len(parts) >= 2:
+                    recording_name, split_label = parts[0], parts[1]
+                    if split_label == self.split:
+                        recordings.add(recording_name)
+        
+        return recordings
     
     def _parse_annotations(self) -> pd.DataFrame:
         """Parse ICBHI annotation files."""
@@ -68,8 +101,8 @@ class ICBHIDataset(Dataset):
             if "_Log" in txt_file.name:
                 continue
             
-            patient_id = txt_file.stem
-            audio_file = self.data_dir / f"{patient_id}.wav"
+            recording_id = txt_file.stem  # e.g., "101_1b1_Al_sc_Meditron"
+            audio_file = self.data_dir / f"{recording_id}.wav"
             if not audio_file.exists():
                 continue
             
@@ -85,7 +118,8 @@ class ICBHIDataset(Dataset):
                         )
                         label = self._get_label(crackles, wheezes)
                         records.append({
-                            "patient_id": patient_id,
+                            "recording_id": recording_id,
+                            "patient_id": recording_id.split("_")[0],  # Extract patient number
                             "audio_file": str(audio_file),
                             "start": start,
                             "end": end,
@@ -110,23 +144,12 @@ class ICBHIDataset(Dataset):
         else:
             return 3  # Both
     
-    def _set_split(self, ratio: float, seed: int):
-        """Patient-level split, NOT random cycle split."""
-        np.random.seed(seed)
-        patients = self.patients.copy()
-        np.random.shuffle(patients)
-        split_idx = int(len(patients) * ratio)
-        
-        if self.split == "train":
-            self.split_patients = set(patients[:split_idx])
-        else:
-            self.split_patients = set(patients[split_idx:])
-    
     def _print_class_distribution(self):
         """Print class distribution for the current split."""
         for label, name in enumerate(["Normal", "Wheeze", "Crackles", "Both"]):
             count = (self.cycles["label"] == label).sum()
-            print(f"  {name}: {count} ({count/len(self.cycles)*100:.1f}%)")
+            pct = count / len(self.cycles) * 100 if len(self.cycles) > 0 else 0
+            print(f"  {name}: {count} ({pct:.1f}%)")
     
     def _load_audio(self, audio_path: str, start: float, end: float) -> np.ndarray:
         """Load and preprocess audio segment."""
@@ -246,17 +269,19 @@ class ICBHIDataset(Dataset):
 
 def create_dataloaders(
     data_dir: str,
+    split_file: str = None,
     batch_size: int = 32,
     sample_rate: int = 16000,
     cycle_duration: float = 4.0,
     num_workers: int = 4,
     return_waveform: bool = False,
-) -> Tuple[DataLoader, DataLoader]:
-    """Create train and test dataloaders with official split."""
+) -> Tuple[DataLoader, DataLoader, torch.Tensor]:
+    """Create train and test dataloaders using the OFFICIAL recording-level split."""
     
     train_dataset = ICBHIDataset(
         data_dir=data_dir,
         split="train",
+        split_file=split_file,
         sample_rate=sample_rate,
         cycle_duration=cycle_duration,
         augment=True,
@@ -266,6 +291,7 @@ def create_dataloaders(
     test_dataset = ICBHIDataset(
         data_dir=data_dir,
         split="test",
+        split_file=split_file,
         sample_rate=sample_rate,
         cycle_duration=cycle_duration,
         augment=False,
